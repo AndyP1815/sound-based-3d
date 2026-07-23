@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{{ config('app.name', 'Laravel') }}</title>
+
+    @fonts
+
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased">
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="/" class="text-xl font-semibold">
+                    {{ config('app.name', 'Laravel') }}
+                </a>
+                <div class="flex items-center gap-4">
+                        <a href="{{ url('/dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        @yield('content')
+    </main>
+
+    <footer class="bg-white border-t mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm text-gray-500">
+            &copy; {{ date('Y') }} {{ config('app.name', 'Laravel') }}. All rights reserved.
+        </div>
+    </footer>
+</body>
+</html>
