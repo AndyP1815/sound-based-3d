@@ -20,6 +20,7 @@ export default class Particles {
         }
 
         this.originalPositions = particlePositions.slice();
+        this.smoothedTreble = 0;
 
         this.geometry = new THREE.BufferGeometry();
         this.geometry.setAttribute(
@@ -56,9 +57,15 @@ export default class Particles {
         return new THREE.CanvasTexture(canvas);
     }
 
-    update(elapsed) {
+    update(elapsed, analysis) {
 
-        this.mesh.rotation.y += 0.0008;
+        const { treble, level } = analysis;
+
+        this.smoothedTreble += (treble - this.smoothedTreble) * 0.2;
+
+        this.material.color.setHSL(0.58 + this.smoothedTreble * 0.08, 0.8, 0.55);
+
+        this.mesh.rotation.y += 0.0008 + level * 0.002;
 
         const positions = this.geometry.attributes.position.array;
         const original = this.originalPositions;
@@ -74,11 +81,16 @@ export default class Particles {
             const nz = oz / length;
 
             const phase = i * 0.02;
-            const pulse = Math.sin(elapsed * 3 + phase) * 0.15;
+            const wave = Math.sin(elapsed * 1.5 + phase) * 0.5 + 0.5;
+            const pulse = wave * (0.15 + this.smoothedTreble * 0.5);
 
-            positions[i] = ox + nx * pulse;
-            positions[i + 1] = oy + ny * pulse;
-            positions[i + 2] = oz + nz * pulse;
+            const tx = ox + nx * pulse;
+            const ty = oy + ny * pulse;
+            const tz = oz + nz * pulse;
+
+            positions[i] += (tx - positions[i]) * 0.15;
+            positions[i + 1] += (ty - positions[i + 1]) * 0.15;
+            positions[i + 2] += (tz - positions[i + 2]) * 0.15;
         }
 
         this.geometry.attributes.position.needsUpdate = true;

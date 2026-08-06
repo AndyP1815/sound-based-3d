@@ -1,8 +1,31 @@
 import * as THREE from 'three';
 
+const CONFIG = {
+    core: {
+        wave: 0.05,
+        bass: 0.18
+    },
+    shell: {
+        scaleMid: 0.1
+    },
+    material: {
+        emissiveBass: 3
+    },
+    light: {
+        keyBase: 20,
+        keyBass: 40
+    },
+    spectrum: {
+        barCount: 72,
+        radius: 1.7,
+        height: 0.5,
+        smoothing: 0.4
+    }
+};
+
 export default class Objects {
 
-    constructor(scene) {
+    constructor(scene, withBar = true) {
 
         // Lighting
         scene.add(new THREE.AmbientLight(0xffffff, 0.2));
@@ -10,6 +33,7 @@ export default class Objects {
         const key = new THREE.PointLight(0x44aaff, 20, 15);
         key.position.set(3, 2, 3);
         scene.add(key);
+        this.key = key;
 
         const fill = new THREE.PointLight(0xff44aa, 15, 15);
         fill.position.set(-3, -2, 2);
@@ -39,6 +63,7 @@ export default class Objects {
 
         this.positionAttr = this.geometry.attributes.position;
         this.original = this.positionAttr.array.slice();
+        this.envelope = 0;
 
         // Energy shell
         this.shell = new THREE.Mesh(
@@ -51,9 +76,60 @@ export default class Objects {
             })
         );
         scene.add(this.shell);
+
+        // Spectrum orb
+
+        if (withBar) {
+            const ringGeometry = new THREE.BoxGeometry(
+                0.03,
+                CONFIG.spectrum.height,
+                0.03
+            );
+
+            const up = new THREE.Vector3(0, 1, 0);
+            const dir = new THREE.Vector3();
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+            this.spectrum = [];
+
+            for (let i = 0; i < CONFIG.spectrum.barCount; i++) {
+                const y = 1 - (i / (CONFIG.spectrum.barCount - 1)) * 2;
+                const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+                const theta = goldenAngle * i;
+
+                dir.set(
+                    Math.cos(theta) * radiusAtY,
+                    y,
+                    Math.sin(theta) * radiusAtY
+                ).normalize();
+
+                const material = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(i / CONFIG.spectrum.barCount, 1, 0.6),
+                    transparent: true,
+                    opacity: 0.85,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+
+                const bar = new THREE.Mesh(ringGeometry, material);
+                bar.position.copy(dir).multiplyScalar(CONFIG.spectrum.radius);
+                bar.quaternion.setFromUnitVectors(up, dir);
+                bar.scale.y = 0.2;
+                bar.userData.value = 0;
+
+                this.spectrum.push(bar);
+                scene.add(bar);
+            }
+        }
+
     }
 
-    update(elapsed, bass, treble) {
+    update(elapsed, analysis) {
+
+        const {bass, mid, treble, level, bars} = analysis;
+
+        const envelope = level > this.envelope ? level : this.envelope * 0.9;
+        this.envelope = envelope;
 
         const position = this.positionAttr;
         const original = this.original;
@@ -68,7 +144,7 @@ export default class Objects {
 
             const wave = Math.sin(ox * 6 + oy * 6 + oz * 6 + elapsed * 5);
 
-            const displacement = 1 + wave * 0.05 + bass * 0.15;
+            const displacement = 1 + wave * CONFIG.core.wave * envelope + bass * CONFIG.core.bass;
 
             position.array[ix] = ox / len * displacement;
             position.array[ix + 1] = oy / len * displacement;
@@ -78,13 +154,24 @@ export default class Objects {
         position.needsUpdate = true;
         this.geometry.computeVertexNormals();
 
-        this.mesh.rotation.y += 0.002;
+        this.mesh.rotation.y += 0.002 * envelope;
 
-        this.shell.rotation.y -= 0.0015;
-        this.shell.rotation.x += 0.001;
-        this.shell.scale.setScalar(1 + bass * 0.08);
+        this.shell.rotation.y -= 0.0015 * envelope;
+        this.shell.rotation.x += 0.001 * envelope;
+        this.shell.scale.setScalar(1 + mid * CONFIG.shell.scaleMid);
 
-        this.material.emissiveIntensity = 1 + bass * 2.5;
+        this.material.emissiveIntensity = 1 + bass * CONFIG.material.emissiveBass;
         this.material.color.setHSL(0.58 + treble * 0.08, 0.8, 0.55);
+
+        this.key.intensity = CONFIG.light.keyBase + bass * CONFIG.light.keyBass;
+
+        if (this.spectrum) {
+
+            for (let i = 0; i < this.spectrum.length; i++) {
+                const bar = this.spectrum[i];
+                bar.userData.value += (bars[i] - bar.userData.value) * CONFIG.spectrum.smoothing;
+                bar.scale.y = CONFIG.spectrum.height * (0.25 + bar.userData.value * 2.5 + level * 0.4);
+            }
+        }
     }
 }

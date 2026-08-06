@@ -1,16 +1,15 @@
 export default class Animation {
 
-    constructor(sceneManager, controls, objects, particles) {
+    constructor(sceneManager, controls, objects, particles, audioCapture) {
 
         sceneManager.animate((elapsed) => {
 
             controls.update();
 
-            const bass = (Math.sin(elapsed * 3) + 1) * 0.5;
-            const treble = (Math.sin(elapsed * 11) + 1) * 0.5;
+            const analysis = audioCapture.getAnalysis(72);
 
-            objects.update(elapsed, bass, treble);
-            particles.update(elapsed);
+            objects.update(elapsed, analysis);
+            particles.update(elapsed, analysis);
         });
     }
 }
